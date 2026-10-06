@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<title>METI Active Time Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Track your actual hours, overtime, attendance and ATOT%.">
+<script>
+(function () {
+  try {
+    var s = localStorage.getItem("meti_theme");
+    var t = s || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", t);
+  } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
+})();
+</script>
+<style>
+:root{
+  --bg:#f5f5f5;--surface:#fff;--surface-2:#faf9f8;--surface-3:#f3f2f1;--surface-4:#edebe9;
+  --border:#e0e0e0;--border-strong:#d1d1d1;
+  --text:#242424;--text-2:#424242;--text-3:#616161;--text-4:#707070;
+  --primary:#0f6cbd;--primary-hover:#115ea3;--primary-active:#0e4775;--primary-soft:rgba(15,108,189,.10);
+  --teal:#038387;--success:#0e700e;--success-soft:#dff6dd;--warning:#815c15;--warning-soft:#fff4ce;
+  --danger:#c50f1f;--danger-soft:#fde7e9;--scrim:rgba(245,245,245,.7);
+  --sh2:0 0 2px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.14);
+  --sh4:0 0 2px rgba(0,0,0,.12),0 2px 4px rgba(0,0,0,.14);
+  --sh16:0 0 2px rgba(0,0,0,.12),0 8px 16px rgba(0,0,0,.14);
+  --sh28:0 0 2px rgba(0,0,0,.12),0 14px 28px rgba(0,0,0,.18);
+  --r-sm:4px;--r-md:6px;--r-lg:8px;--r-xl:12px;
+  --ease:cubic-bezier(.16,1,.3,1);--ease-s:cubic-bezier(.33,0,.67,1);
+  --font:'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  --bg:#1f1f1f;--surface:#292827;--surface-2:#242424;--surface-3:#1f1f1f;--surface-4:#141414;
+  --border:#3d3d3d;--border-strong:#525252;
+  --text:#fff;--text-2:#d6d6d6;--text-3:#adadad;--text-4:#999;
+  --primary:#2886de;--primary-hover:#479ef5;--primary-active:#1668b0;--primary-soft:rgba(71,158,245,.16);
+  --teal:#35c2b5;--success:#54b054;--success-soft:rgba(84,176,84,.15);
+  --warning:#f1bd42;--warning-soft:rgba(241,189,66,.15);
+  --danger:#e37d80;--danger-soft:rgba(227,125,128,.15);--scrim:rgba(10,10,10,.65);
+  --sh2:0 0 2px rgba(0,0,0,.24),0 1px 2px rgba(0,0,0,.28);
+  --sh4:0 0 2px rgba(0,0,0,.24),0 2px 4px rgba(0,0,0,.28);
+  --sh16:0 0 2px rgba(0,0,0,.24),0 8px 16px rgba(0,0,0,.28);
+  --sh28:0 0 2px rgba(0,0,0,.24),0 14px 28px rgba(0,0,0,.34);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;transition:background-color .25s,color .25s}
+button,input{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.container{max-width:1120px;margin:0 auto;padding:0 24px 64px}
+
+/* logo */
+.meti-logo{display:block}.meti-logo .bar{transition:transform .18s var(--ease)}
+.brand-mark:hover .bar-1,.card-logo:hover .bar-1{transform:translate(2.5px,-2.5px)}
+.brand-mark:hover .bar-2,.card-logo:hover .bar-2{transform:translate(-2.5px,2.5px)}
+
+/* app bar */
+.app-bar{display:flex;align-items:center;justify-content:space-between;height:60px;animation:fadeDown .4s var(--ease) backwards}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-mark{padding:3px;border-radius:var(--r-sm)}.brand-mark .meti-logo{width:27px;height:21px}
+.brand-name{font-size:14px;font-weight:600}.brand-sep{width:1px;height:14px;background:var(--border-strong)}
+.brand-sub{font-size:13px;color:var(--text-3)}
+.icon-btn{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--text-3);transition:.1s}
+.icon-btn:hover{background:var(--surface-3);color:var(--text)}.icon-btn svg{width:16px;height:16px}
+#themeToggle .icon-sun{display:none}[data-theme="dark"] #themeToggle .icon-sun{display:block}[data-theme="dark"] #themeToggle .icon-moon{display:none}
+
+/* search card */
+.search-wrapper{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 124px)}
+.search-wrapper.collapsed{display:block;min-height:0;padding:8px 0 20px}
+.card{width:100%;max-width:560px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);box-shadow:var(--sh16);padding:40px;animation:cardIn .5s var(--ease) .06s backwards}
+.card-logo{display:flex;justify-content:center;margin:0 auto 16px;width:76px;padding:4px}.card-logo .meti-logo{width:66px;height:51px}
+.header{margin-bottom:24px;text-align:center}
+.header h1{font-size:26px;font-weight:600;letter-spacing:-.015em;line-height:1.25;min-height:1.3em}
+.subtitle{margin-top:8px;color:var(--text-2);line-height:1.6}
+.cursor{display:inline-block;width:2px;height:.85em;margin-left:3px;border-radius:1px;background:var(--primary);vertical-align:-.06em;animation:blink 1s step-end infinite}
+.search-box{display:flex;gap:10px}
+.search-box input{flex:1;min-width:0;height:42px;padding:0 14px;border:1px solid var(--border-strong);border-bottom:2px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.search-box input::placeholder{color:var(--text-4);letter-spacing:0}
+.search-box input:hover{border-bottom-color:var(--text-3)}.search-box input:focus{outline:none;border-bottom-color:var(--primary)}
+.hint{margin-top:10px;font-size:12px;color:var(--text-4);text-align:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 20px;border:1px solid transparent;border-radius:var(--r-sm);font-weight:600;white-space:nowrap;transition:.1s}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}.btn-primary:active{background:var(--primary-active);transform:scale(.98)}
+.btn.loading{pointer-events:none;opacity:.85}.btn.loading .btn-text{display:none}
+.spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}.btn.loading .spinner{display:block}
+.search-wrapper.collapsed .card{max-width:none;display:flex;align-items:center;gap:20px;padding:12px 16px;border-radius:var(--r-lg);box-shadow:var(--sh2)}
+.search-wrapper.collapsed .card-logo,.search-wrapper.collapsed .subtitle,.search-wrapper.collapsed .hint{display:none}
+.search-wrapper.collapsed .header{margin:0;text-align:left;min-width:0}
+.search-wrapper.collapsed .header h1{font-size:15px;min-height:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-wrapper.collapsed .search-wrap{flex:1;max-width:480px;margin-left:auto}
+.search-wrapper.collapsed .search-box input{height:34px}.search-wrapper.collapsed .btn{height:34px;padding:0 16px}
+
+/* loading */
+.loading-overlay{display:none;position:fixed;inset:0;z-index:9999;background:var(--scrim);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center}
+.loading-overlay.show{display:flex;animation:fadeIn .12s}
+.loading-content{width:min(380px,calc(100vw - 48px));background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);box-shadow:var(--sh28);padding:32px 24px 24px;text-align:center;animation:popIn .2s var(--ease) backwards}
+.loading-logo{width:58px;height:45px;margin:0 auto 12px}.loading-logo .meti-logo{width:100%;height:100%}
+.loading-logo .bar-1{animation:bar1 .9s var(--ease-s) infinite alternate}.loading-logo .bar-2{animation:bar2 .9s var(--ease-s) infinite alternate}
+.loading-text{font-weight:600}.loading-sub{font-size:12.5px;color:var(--text-3);margin:2px 0 20px}
+.progress{height:4px;border-radius:3px;background:var(--surface-4);overflow:hidden}
+.progress-fill{height:100%;width:0;border-radius:3px;background:var(--primary);transition:width .15s ease-out}
+.progress-text{margin-top:10px;font-size:12px;font-weight:600;color:var(--text-3);font-variant-numeric:tabular-nums}
+
+/* filters */
+.filter-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh2);padding:16px;margin-bottom:20px;animation:riseIn .3s var(--ease) backwards}
+.filter-header{display:flex;align-items:center;margin-bottom:12px}
+.filter-header h3{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3)}
+#refreshBtn{margin-left:auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text-3);transition:.1s}
+#refreshBtn svg{width:14px;height:14px;transition:transform .25s var(--ease)}
+#refreshBtn:hover{color:var(--primary);background:var(--surface-3)}#refreshBtn:hover svg{transform:rotate(120deg)}
+.filter-buttons{display:flex;gap:4px;padding:3px;background:var(--surface-3);border-radius:var(--r-md);overflow-x:auto;scrollbar-width:none}
+.filter-buttons::-webkit-scrollbar{display:none}
+.filter-btn{position:relative;flex:none;padding:7px 12px 10px;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;font-size:13px;color:var(--text-2);transition:.1s}
+.filter-btn:hover{background:var(--surface-4);color:var(--text)}
+.filter-btn.active{background:var(--surface);color:var(--text);font-weight:600;border-color:var(--border);box-shadow:var(--sh2)}
+.filter-btn.active::after{content:'';position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:16px;height:3px;border-radius:3px;background:var(--primary)}
+.date-range{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);align-items:center;gap:10px;flex-wrap:wrap}
+.date-range.show{display:flex;animation:fadeSlide .22s var(--ease)}
+.date-range input{height:34px;min-width:150px;padding:0 10px;font-size:13px;border:1px solid var(--border-strong);border-bottom:2px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface)}
+.date-range input:focus{outline:none;border-bottom-color:var(--primary)}
+.date-range span{font-size:13px;color:var(--text-3)}
+.date-range button{height:34px;padding:0 16px;border:none;border-radius:var(--r-sm);background:var(--primary);color:#fff;font-size:13px;font-weight:600}
+.date-range button:hover{background:var(--primary-hover)}
+
+/* stats */
+.stats{display:none}
+.stats.show{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh2);padding:16px 20px;text-align:center;transition:box-shadow .18s,transform .18s var(--ease);animation:riseIn .38s var(--ease) backwards}
+.stat:hover{box-shadow:var(--sh4);transform:translateY(-2px)}
+.stats.show .stat:nth-child(2){animation-delay:40ms}.stats.show .stat:nth-child(3){animation-delay:80ms}
+.stats.show .stat:nth-child(4){animation-delay:120ms}.stats.show .stat:nth-child(5){animation-delay:160ms}.stats.show .stat:nth-child(6){animation-delay:200ms}
+.stat h3{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px}
+.stat p{font-size:24px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.stat:nth-child(2) p{color:var(--primary)}.stat:nth-child(3) p{color:var(--teal)}
+
+/* day cards */
+.results{display:none}
+.results.show{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px}
+.day-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh2);overflow:hidden;transition:border-color .1s,box-shadow .18s,transform .18s var(--ease);animation:riseIn .25s var(--ease) var(--d,0ms) backwards}
+.day-card:hover{border-color:var(--border-strong);box-shadow:var(--sh4);transform:translateY(-1px)}
+.day-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
+.day-head h4{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.day-head h4::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.badge{font-size:11.5px;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface-3);color:var(--text-2)}
+.badge.present{background:var(--success-soft);color:var(--success)}.badge.absent{background:var(--danger-soft);color:var(--danger)}
+.day-body{padding:0 16px 16px}
+.section-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;font-size:13px}
+.row span{color:var(--text-2)}.row b{font-weight:600;font-variant-numeric:tabular-nums}
+.atot{margin-top:var(--s,12px);padding-top:14px;border-top:1px solid var(--border)}
+.atot-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.atot-val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.bar{height:6px;border-radius:3px;background:var(--surface-4);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:3px;background:var(--primary);width:0;transition:width .6s var(--ease)}
+.good .atot-val{color:var(--success)}.good .bar>i{background:var(--success)}
+.mid .atot-val{color:var(--warning)}.mid .bar>i{background:var(--warning)}
+.low .atot-val{color:var(--danger)}.low .bar>i{background:var(--danger)}
+.nodata{grid-column:1/-1;text-align:center;padding:48px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh2);animation:riseIn .35s var(--ease) backwards}
+.nodata-icon{width:44px;height:44px;margin:0 auto 12px;border-radius:var(--r-lg);background:var(--surface-3);color:var(--text-3);display:flex;align-items:center;justify-content:center}
+.nodata-icon svg{width:20px;height:20px}.nodata-icon.err{background:var(--danger-soft);color:var(--danger)}
+.nodata-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.nodata-text{font-size:13.5px;color:var(--text-2);max-width:400px;margin:0 auto}
+.retry-btn{margin-top:20px}
+.app-footer{margin-top:48px;text-align:center;font-size:12px;color:var(--text-4)}
+
+@keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes popIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+@keyframes bar1{to{transform:translate(3px,-3px)}}@keyframes bar2{to{transform:translate(-3px,3px)}}
+
+@media(max-width:960px){.stats.show{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.brand-sub,.brand-sep{display:none}.card{padding:24px}
+  .search-wrapper.collapsed .card{flex-wrap:wrap;gap:12px}.search-wrapper.collapsed .search-wrap{max-width:none;width:100%;margin-left:0}}
+@media(max-width:640px){.search-box{flex-direction:column}.search-box .btn{width:100%}.header h1{font-size:22px}}
+@media(max-width:600px){.stats.show{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.stat{padding:12px 16px}.stat p{font-size:20px}
+  .date-range{flex-direction:column;align-items:stretch}.date-range span{display:none}.date-range input{width:100%}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="app-bar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg class="meti-logo" viewBox="0 0 72 56" fill="none"><defs><linearGradient id="g1" x1="8" y1="6" x2="64" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#3fb0ff"/><stop offset="1" stop-color="#0847f0"/></linearGradient></defs><path class="bar bar-1" d="M16 6 H36 L64 34 H44 Z" fill="url(#g1)"/><path class="bar bar-2" d="M4 26 H18 L36 44 H22 Z" fill="url(#g1)"/></svg>
+      </span>
+      <span class="brand-name">METI</span><span class="brand-sep"></span><span class="brand-sub">Active Time</span>
+    </div>
+    <button id="themeToggle" class="icon-btn" type="button" aria-label="Toggle theme" title="Toggle theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    </button>
+  </header>
+
+  <div class="search-wrapper" id="searchWrapper">
+    <div class="card">
+      <div class="header">
+        <div class="card-logo" aria-hidden="true">
+          <svg class="meti-logo" viewBox="0 0 72 56" fill="none"><defs><linearGradient id="g2" x1="8" y1="6" x2="64" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#3fb0ff"/><stop offset="1" stop-color="#0847f0"/></linearGradient></defs><path class="bar bar-1" d="M16 6 H36 L64 34 H44 Z" fill="url(#g2)"/><path class="bar bar-2" d="M4 26 H18 L36 44 H22 Z" fill="url(#g2)"/></svg>
+        </div>
+        <h1 id="mainTitle"><span id="twText"></span><span class="cursor" id="twCursor"></span></h1>
+        <p class="subtitle">Track your actual hours, overtime, attendance and ATOT% — all in one place.</p>
+      </div>
+      <div class="search-wrap" style="width:100%">
+        <div class="search-box">
+          <input id="nid" type="text" inputmode="numeric" maxlength="14" placeholder="Enter your 14-digit National ID" autocomplete="off" spellcheck="false" aria-label="National ID">
+          <button id="searchBtn" type="button" class="btn btn-primary" onclick="search()">
+            <span class="btn-text">Search</span><span class="spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+        <p class="hint">Your National ID is only used to find your own records.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" class="loading-overlay" role="alert" aria-live="polite">
+    <div class="loading-content">
+      <div class="loading-logo" aria-hidden="true">
+        <svg class="meti-logo" viewBox="0 0 72 56" fill="none"><defs><linearGradient id="g3" x1="8" y1="6" x2="64" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#3fb0ff"/><stop offset="1" stop-color="#0847f0"/></linearGradient></defs><path class="bar bar-1" d="M16 6 H36 L64 34 H44 Z" fill="url(#g3)"/><path class="bar bar-2" d="M4 26 H18 L36 44 H22 Z" fill="url(#g3)"/></svg>
+      </div>
+      <div class="loading-text">Loading your data...</div>
+      <div class="loading-sub">Contacting the METI server</div>
+      <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text" id="progressText">0%</div>
+    </div>
+  </div>
+
+  <section id="filterCard" class="filter-card" aria-label="Date filters">
+    <div class="filter-header">
+      <h3>Date range</h3>
+      <button id="refreshBtn" onclick="search(true)" type="button" title="Refresh data from server" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      </button>
+    </div>
+    <div class="filter-buttons" role="group" aria-label="Quick date ranges">
+      <button class="filter-btn" onclick="filterYesterday()" type="button">Yesterday</button>
+      <button class="filter-btn active" onclick="filterLastDays(7)" type="button">Last 7 Days</button>
+      <button class="filter-btn" onclick="filterLastDays(14)" type="button">Last 14 Days</button>
+      <button class="filter-btn" onclick="filterLastMonth()" type="button">Last Month</button>
+      <button class="filter-btn" onclick="toggleCustomRange()" type="button">Custom Range</button>
+      <button class="filter-btn" onclick="clearFilter()" type="button">All Time</button>
+    </div>
+    <div id="dateRange" class="date-range">
+      <input type="date" id="startDate" aria-label="Start date"><span>to</span>
+      <input type="date" id="endDate" aria-label="End date">
+      <button onclick="applyCustomRange()" type="button">Apply</button>
+    </div>
+  </section>
+
+  <section id="stats" class="stats" aria-label="Summary">
+    <div class="stat"><h3>Total Days</h3><p id="sDays">0</p></div>
+    <div class="stat"><h3>Actual Hours</h3><p id="sActual">0</p></div>
+    <div class="stat"><h3>Overtime Hours</h3><p id="sOvertime">0</p></div>
+    <div class="stat"><h3>Expected Hours</h3><p id="sExpected">0</p></div>
+    <div class="stat"><h3>Avg ATOT%</h3><p id="sAtot">-</p></div>
+    <div class="stat"><h3>Present Days</h3><p id="sPresent">0</p></div>
+  </section>
+
+  <section id="results" class="results" aria-live="polite"></section>
+  <footer class="app-footer">METI Active Time Dashboard · Internal analytics tool</footer>
+</div>
+
+<script>
+/* ---------- Typewriter ---------- */
+(function () {
+  var T = "Active Time Dashboard", el = document.getElementById("twText"), i = 0;
+  function next() {
+    if (i >= T.length || window.__loaded) return;
+    el.textContent += T[i++];
+    setTimeout(next, 50 + Math.random() * 40 - 20);
+  }
+  setTimeout(next, 400);
+})();
+</script>
+
+<script>
+/* ============================================
+   ⚙️ CONFIG — paste your Apps Script Web App URL
+============================================ */
+const API_URL = "https://script.google.com/macros/s/AKfycbw-XDQfIYmRvB95XbKQiS-MFbPpPYcpqAM6biGEmmtESxNNxzNRnMXeIFTzywgkOYzX7Q/exec";
+
+const CACHE_TTL     = 5 * 60 * 1000;  // 5 min (kept in sessionStorage → cleared when tab closes)
+const FETCH_TIMEOUT = 30000;
+const ATOT_GOOD = 75;                 // ATOT% >= 75  → green
+const ATOT_MID  = 50;                 // ATOT% >= 50  → amber, below → red
+
+let allData = [], filteredData = [], employeeName = "";
+
+const ICON_ALERT = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/><path d='M12 9v4'/><path d='M12 17h.01'/></svg>";
+const ICON_INBOX = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>";
+
+const $ = (id) => document.getElementById(id);
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* Arabic-Indic digits → English, digits only */
+function cleanNid(v) {
+  return String(v || "")
+    .replace(/[\u0660-\u0669]/g, (d) => d.charCodeAt(0) - 0x0660)
+    .replace(/[\u06F0-\u06F9]/g, (d) => d.charCodeAt(0) - 0x06F0)
+    .replace(/\D/g, "");
+}
+
+function isoDate(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function formatDayLabel(iso) {
+  const d = new Date(iso + "T00:00:00");
+  if (isNaN(d)) return iso;
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return days[d.getDay()] + " · " + months[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+}
+
+/* ---------- API ---------- */
+function apiEndpoint(nid, fresh) {
+  return API_URL + "?nid=" + encodeURIComponent(nid) + (fresh ? "&fresh=1" : "");
+}
+
+function fetchWithTimeout(url, ms) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+  return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
+}
+
+function fetchJsonp(url, ms) {
+  return new Promise((resolve, reject) => {
+    const cb = "__metiCb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+    const s = document.createElement("script");
+    const timer = setTimeout(() => { cleanup(); reject(new Error("Timeout")); }, ms);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[cb] = (d) => { cleanup(); resolve(d); };
+    s.src = url + "&callback=" + cb;
+    s.onerror = () => { cleanup(); reject(new Error("Network error")); };
+    document.head.appendChild(s);
+  });
+}
+
+/* ---------- Session cache (not localStorage: employees may share PCs) ---------- */
+function readCache(nid) {
+  try {
+    const o = JSON.parse(sessionStorage.getItem("meti_at_" + nid));
+    if (!o || Date.now() - o.t > CACHE_TTL) return null;
+    return o.d;
+  } catch (e) { return null; }
+}
+function writeCache(nid, d) {
+  try { sessionStorage.setItem("meti_at_" + nid, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {}
+}
+
+/* ---------- Search flow ---------- */
+const nidInput = $("nid");
+nidInput.addEventListener("input", () => {
+  const c = cleanNid(nidInput.value).slice(0, 14);
+  if (c !== nidInput.value) nidInput.value = c;
+});
+nidInput.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
+
+function search(forceFresh) {
+  const nid = cleanNid(nidInput.value);
+  if (nid.length !== 14) {
+    nidInput.focus();
+    return alert("Please enter a valid 14-digit National ID");
+  }
+  if (API_URL.indexOf("YOUR_DEPLOYMENT_ID") !== -1) {
+    return alert("⚠️ Please set API_URL in index.html first (Apps Script Web App link)");
+  }
+
+  window.__loaded = true;
+  const btn = $("searchBtn"), overlay = $("loadingOverlay");
+  btn.classList.add("loading");
+  overlay.classList.add("show");
+  $("results").classList.remove("show");
+  $("stats").classList.remove("show");
+  $("filterCard").style.display = "none";
+
+  let p = 0;
+  const fill = $("progressFill"), txt = $("progressText");
+  fill.style.width = "0%"; txt.textContent = "0%";
+  const iv = setInterval(() => {
+    p = Math.min(90, p + Math.random() * 14);
+    fill.style.width = p + "%"; txt.textContent = Math.floor(p) + "%";
+  }, 120);
+
+  const finish = (json) => {
+    clearInterval(iv);
+    fill.style.width = "100%"; txt.textContent = "100%";
+    setTimeout(() => { overlay.classList.remove("show"); btn.classList.remove("loading"); render(json); }, 150);
+  };
+  const fail = (msg) => {
+    clearInterval(iv);
+    btn.classList.remove("loading"); overlay.classList.remove("show");
+    showError(msg);
+  };
+  const handle = (json) => {
+    if (!json || json.ok === false) throw new Error((json && json.error) || "Unknown error");
+    writeCache(nid, json);
+    finish(json);
+  };
+
+  if (!forceFresh) {
+    const c = readCache(nid);
+    if (c) return finish(c);
+  }
+
+  fetchWithTimeout(apiEndpoint(nid, forceFresh), FETCH_TIMEOUT)
+    .then((r) => { if (!r.ok) throw new Error("Server error (" + r.status + ")"); return r.json(); })
+    .then(handle)
+    .catch((err) => {
+      if (err && /National ID|Database|Unknown|required/i.test(err.message)) return fail(escapeHtml(err.message));
+      fetchJsonp(apiEndpoint(nid, forceFresh), FETCH_TIMEOUT)
+        .then(handle)
+        .catch((e2) => fail(e2 && /National ID/i.test(e2.message) ? escapeHtml(e2.message) : "Could not connect to the server. Check your internet and try again."));
+    });
+}
+
+/* ---------- Rendering ---------- */
+function collapse() {
+  document.body.classList.add("loaded");
+  $("searchWrapper").classList.add("collapsed");
+  $("twCursor").style.display = "none";
+}
+
+function render(json) {
+  collapse();
+  allData = (json && json.data) || [];
+  employeeName = (json && json.name) || "";
+
+  if (!allData.length) {
+    $("twText").textContent = "Active Time Dashboard";
+    $("results").innerHTML =
+      '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div>' +
+      '<h3 class="nodata-title">No data found</h3>' +
+      '<p class="nodata-text">We could not find any records for this National ID. Please double-check the number.</p></div>';
+    $("results").classList.add("show");
+    return;
+  }
+
+  $("twText").textContent = "Welcome, " + (employeeName || "Employee");
+  $("filterCard").style.display = "block";
+  filterLastDays(7);
+}
+
+function showError(msg) {
+  collapse();
+  $("results").innerHTML =
+    '<div class="nodata"><div class="nodata-icon err">' + ICON_ALERT + '</div>' +
+    '<h3 class="nodata-title">Something went wrong</h3><p class="nodata-text">' + msg + '</p>' +
+    '<button class="retry-btn btn btn-primary" onclick="search(true)">Try again</button></div>';
+  $("results").classList.add("show");
+}
+
+function atotClass(v) { return v >= ATOT_GOOD ? "good" : v >= ATOT_MID ? "mid" : "low"; }
+
+function displayData(data) {
+  let aSum = 0, oSum = 0, eSum = 0, tSum = 0, tCnt = 0, present = 0, html = "";
+
+  data.forEach((r, i) => {
+    aSum += r.actual; oSum += r.overtime; eSum += r.expected;
+    const hasAtot = typeof r.atot === "number";
+    if (hasAtot) { tSum += r.atot; tCnt++; }
+
+    const att = r.attendance || "-";
+    const isP = /\bP\b/i.test(att) || /present/i.test(att);
+    const isA = /\bA\b/i.test(att) || /absent/i.test(att);
+    if (isP) present++;
+
+    html += '<article class="day-card" style="--d:' + Math.min(i, 8) * 45 + 'ms">' +
+      '<div class="day-head"><h4>' + escapeHtml(formatDayLabel(r.date)) + '</h4>' +
+      '<span class="badge ' + (isP ? "present" : isA ? "absent" : "") + '">' + escapeHtml(att) + '</span></div>' +
+      '<div class="day-body">' +
+      '<div class="section-title">Working Hours</div>' +
+      '<div class="row"><span>Actual Hours</span><b>' + r.actual.toFixed(2) + '</b></div>' +
+      '<div class="row"><span>Overtime Hours</span><b>' + r.overtime.toFixed(2) + '</b></div>' +
+      '<div class="row"><span>Expected Hours</span><b>' + r.expected.toFixed(2) + '</b></div>' +
+      '<div class="atot ' + (hasAtot ? atotClass(r.atot) : "") + '">' +
+        '<div class="atot-top"><span class="section-title" style="margin:0">ATOT%</span>' +
+        '<span class="atot-val">' + (hasAtot ? r.atot.toFixed(2) + "%" : "-") + '</span></div>' +
+        '<div class="bar"><i data-w="' + (hasAtot ? Math.max(0, Math.min(100, r.atot)) : 0) + '"></i></div>' +
+      '</div></div></article>';
+  });
+
+  $("sDays").textContent = data.length;
+  $("sActual").textContent = aSum.toFixed(1);
+  $("sOvertime").textContent = oSum.toFixed(1);
+  $("sExpected").textContent = eSum.toFixed(1);
+  $("sAtot").textContent = tCnt ? (tSum / tCnt).toFixed(2) + "%" : "-";
+  $("sPresent").textContent = present;
+
+  const res = $("results");
+  res.innerHTML = data.length ? html :
+    '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No records in this period</h3>' +
+    '<p class="nodata-text">Try another date range, or choose All Time.</p></div>';
+  res.classList.add("show");
+  $("stats").classList.add("show");
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    res.querySelectorAll(".bar>i").forEach((b) => { b.style.width = b.dataset.w + "%"; });
+  }));
+}
+
+/* ---------- Filters ---------- */
+function setActive(i) {
+  document.querySelectorAll(".filter-btn").forEach((b, k) => b.classList.toggle("active", k === i));
+  $("dateRange").classList.remove("show");
+}
+
+function apply(fn, idx) {
+  filteredData = allData.filter(fn);
+  setActive(idx);
+  displayData(filteredData);
+}
+
+function filterYesterday() {
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const y = isoDate(d);
+  apply((r) => r.date === y, 0);
+}
+
+function filterLastDays(n) {
+  const today = new Date(), from = new Date();
+  from.setDate(from.getDate() - (n - 1));
+  const a = isoDate(from), b = isoDate(today);
+  apply((r) => r.date >= a && r.date <= b, n === 7 ? 1 : 2);
+}
+
+function filterLastMonth() {
+  const today = new Date(), from = new Date();
+  from.setMonth(from.getMonth() - 1);
+  const a = isoDate(from), b = isoDate(today);
+  apply((r) => r.date >= a && r.date <= b, 3);
+}
+
+function toggleCustomRange() { $("dateRange").classList.toggle("show"); }
+
+function applyCustomRange() {
+  const s = $("startDate").value, e = $("endDate").value;
+  if (!s || !e) return alert("Please select both dates");
+  apply((r) => r.date >= s && r.date <= e, 4);
+  $("dateRange").classList.remove("show");
+}
+
+function clearFilter() { apply(() => true, 5); }
+
+/* ---------- Theme ---------- */
+(function () {
+  const btn = $("themeToggle");
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("meti_theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
