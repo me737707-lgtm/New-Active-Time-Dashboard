@@ -5,6 +5,7 @@
 <title>METI Active Time Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Track your actual hours, overtime, attendance and ATOT%.">
+<meta name="robots" content="noindex,nofollow">
 <script>
 (function () {
   try {
@@ -369,7 +370,38 @@ nidInput.addEventListener("input", () => {
 });
 nidInput.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
 
+/* ---------- Request layer (timeout → JSONP fallback → one automatic retry) ---------- */
+function unwrap(json) {
+  if (!json || json.ok === false) {
+    const e = new Error((json && json.error) || "Unknown error");
+    e.busy = !!(json && json.busy);
+    e.server = !e.busy;               // busy → transient → retry; otherwise a real answer
+    throw e;
+  }
+  return json;
+}
+
+function requestOnce(url) {
+  return fetchWithTimeout(url, FETCH_TIMEOUT)
+    .then((r) => { if (!r.ok) throw new Error("Server error (" + r.status + ")"); return r.json(); })
+    .then(unwrap)
+    .catch((e) => {
+      if (e.server) throw e;
+      return fetchJsonp(url, FETCH_TIMEOUT).then(unwrap);
+    });
+}
+
+function requestWithRetry(url) {
+  return requestOnce(url).catch((e) => {
+    if (e.server) throw e;
+    return new Promise((r) => setTimeout(r, 800 + Math.random() * 1200)).then(() => requestOnce(url));
+  });
+}
+
+let busy = false;
+
 function search(forceFresh) {
+  if (busy) return;
   const nid = cleanNid(nidInput.value);
   if (nid.length !== 14) {
     nidInput.focus();
@@ -379,6 +411,7 @@ function search(forceFresh) {
     return alert("⚠️ Please set API_URL in index.html first (Apps Script Web App link)");
   }
 
+  busy = true;
   window.__loaded = true;
   const btn = $("searchBtn"), overlay = $("loadingOverlay");
   btn.classList.add("loading");
@@ -395,36 +428,22 @@ function search(forceFresh) {
     fill.style.width = p + "%"; txt.textContent = Math.floor(p) + "%";
   }, 120);
 
+  const end = () => { clearInterval(iv); busy = false; btn.classList.remove("loading"); };
+
   const finish = (json) => {
-    clearInterval(iv);
     fill.style.width = "100%"; txt.textContent = "100%";
-    setTimeout(() => { overlay.classList.remove("show"); btn.classList.remove("loading"); render(json); }, 150);
+    setTimeout(() => { overlay.classList.remove("show"); end(); render(json); }, 150);
   };
-  const fail = (msg) => {
-    clearInterval(iv);
-    btn.classList.remove("loading"); overlay.classList.remove("show");
-    showError(msg);
-  };
-  const handle = (json) => {
-    if (!json || json.ok === false) throw new Error((json && json.error) || "Unknown error");
-    writeCache(nid, json);
-    finish(json);
-  };
+  const fail = (msg) => { overlay.classList.remove("show"); end(); showError(msg); };
 
   if (!forceFresh) {
     const c = readCache(nid);
     if (c) return finish(c);
   }
 
-  fetchWithTimeout(apiEndpoint(nid, forceFresh), FETCH_TIMEOUT)
-    .then((r) => { if (!r.ok) throw new Error("Server error (" + r.status + ")"); return r.json(); })
-    .then(handle)
-    .catch((err) => {
-      if (err && /National ID|Database|Unknown|required/i.test(err.message)) return fail(escapeHtml(err.message));
-      fetchJsonp(apiEndpoint(nid, forceFresh), FETCH_TIMEOUT)
-        .then(handle)
-        .catch((e2) => fail(e2 && /National ID/i.test(e2.message) ? escapeHtml(e2.message) : "Could not connect to the server. Check your internet and try again."));
-    });
+  requestWithRetry(apiEndpoint(nid, forceFresh))
+    .then((json) => { writeCache(nid, json); finish(json); })
+    .catch((e) => fail(e && (e.server || e.busy) ? e.message : "Could not connect to the server. Check your internet and try again."));
 }
 
 /* ---------- Rendering ---------- */
@@ -458,7 +477,7 @@ function showError(msg) {
   collapse();
   $("results").innerHTML =
     '<div class="nodata"><div class="nodata-icon err">' + ICON_ALERT + '</div>' +
-    '<h3 class="nodata-title">Something went wrong</h3><p class="nodata-text">' + msg + '</p>' +
+    '<h3 class="nodata-title">Something went wrong</h3><p class="nodata-text">' + escapeHtml(msg) + '</p>' +
     '<button class="retry-btn btn btn-primary" onclick="search(true)">Try again</button></div>';
   $("results").classList.add("show");
 }
