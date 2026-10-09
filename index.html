@@ -321,12 +321,23 @@ select.in{padding-right:6px}
 
     <div class="panel">
       <div class="ctrl">
-        <button class="btn btn-ghost btn-sm" id="supPrev" type="button" aria-label="Previous day">‹</button>
+        <button class="btn btn-ghost btn-sm" id="supPrev" type="button" aria-label="Previous">‹</button>
         <input class="in" type="date" id="supDate" aria-label="Day">
-        <button class="btn btn-ghost btn-sm" id="supNext" type="button" aria-label="Next day">›</button>
-        <button class="btn btn-ghost btn-sm" id="supYest" type="button">Yesterday</button>
+        <button class="btn btn-ghost btn-sm" id="supNext" type="button" aria-label="Next">›</button>
+        <div class="filter-buttons" id="supPresets" role="group" aria-label="Period">
+          <button class="filter-btn" data-q="yest" type="button">Yesterday</button>
+          <button class="filter-btn" data-q="7" type="button">Last 7 Days</button>
+          <button class="filter-btn" data-q="14" type="button">Last 14 Days</button>
+          <button class="filter-btn" data-q="custom" type="button">Custom Range</button>
+        </div>
         <span class="grow"></span>
-        <button class="btn btn-ghost btn-sm" id="supRefresh" type="button" title="Reload this day">↻ Refresh</button>
+        <button class="btn btn-ghost btn-sm" id="supRefresh" type="button" title="Reload this period">↻ Refresh</button>
+      </div>
+      <div class="date-range" id="supRange">
+        <input type="date" id="supFrom" aria-label="From"><span>to</span>
+        <input type="date" id="supTo" aria-label="To">
+        <button id="supApply" type="button">Apply</button>
+        <span id="supRangeHint" style="font-size:12px;color:var(--text-4)">Up to 62 days</span>
       </div>
       <div class="ctrl">
         <input class="in grow" type="search" id="supSearch" placeholder="Search employee or TL/ QTC..." aria-label="Search">
@@ -663,76 +674,128 @@ function clearFilter() { apply(() => true, 5); }
    👔 SUPERVISOR VIEW
 ============================================ */
 const THRESH = 80;                         // % ATOT split (>= 80 → "above")
-const SUP = { nid: "", info: null, date: "", all: [], cache: {}, tab: "all", seq: 0 };
+const MAX_RANGE_DAYS = 62;
+const SUP = { nid: "", info: null, from: "", to: "", recs: [], cache: {}, tab: "all", seq: 0 };
 
-const yesterdayIso = () => { const d = new Date(); d.setDate(d.getDate() - 1); return isoDate(d); };
+const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return isoDate(d); };
+const yesterdayIso = () => addDays(isoDate(new Date()), -1);
+const daysBetween = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000) + 1;
+const isRange = () => SUP.from !== SUP.to;
+const shortDate = (iso) => { const d = new Date(iso + "T00:00:00"); return isNaN(d) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+const periodLabel = () => (isRange() ? shortDate(SUP.from) + " → " + shortDate(SUP.to) + " · " + daysBetween(SUP.from, SUP.to) + " days" : formatDayLabel(SUP.from));
 const isPresent = (a) => /\bP\b/i.test(a || "") || /present/i.test(a || "");
 const hasAtot = (x) => typeof x.atot === "number";
 const supCls = (v) => (v >= THRESH ? "good" : "low");
+const r2 = (n) => Math.round(n * 100) / 100;
 const avgOf = (arr, f) => (arr.length ? arr.reduce((s, x) => s + f(x), 0) / arr.length : null);
 const sumOf = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 const pct2 = (v) => (v === null || v === undefined ? "-" : v.toFixed(2) + "%");
 const chip = (v) => (typeof v === "number" ? '<span class="chip ' + supCls(v) + '">' + v.toFixed(2) + "%</span>" : '<span class="chip">-</span>');
+const TAB_LABEL = { all: "All employees", hi: "≥ " + THRESH + "%", lo: "< " + THRESH + "%", tl: "By Team Lead" };
 
 function renderSupervisor(json) {
   SUP.nid = cleanNid(nidInput.value);
-  SUP.info = json; SUP.cache = {}; SUP.tab = "all"; SUP.all = [];
+  SUP.info = json; SUP.cache = {}; SUP.tab = "all"; SUP.recs = [];
   $("twText").textContent = "Welcome, " + json.name;
   $("supName").textContent = json.name;
   $("supTitle").textContent = json.title;
   $("supShift").textContent = "Shift " + json.shift;
-  $("supDate").max = isoDate(new Date());
-  if (json.dates && json.dates.length) $("supDate").min = json.dates[json.dates.length - 1];
+  const today = isoDate(new Date());
+  ["supDate", "supFrom", "supTo"].forEach((id) => { $(id).max = today; if (json.dates && json.dates.length) $(id).min = json.dates[json.dates.length - 1]; });
+  $("supRange").classList.remove("show");
   $("supView").style.display = "block";
-  loadDay(yesterdayIso());
+  const y = yesterdayIso();
+  loadRange(y, y);
 }
 
-function loadDay(date, fresh) {
-  if (!date) return;
-  SUP.date = date;
-  $("supDate").value = date;
-  $("supDay").textContent = formatDayLabel(date);
-  const mySeq = ++SUP.seq;
+function toRec(r, withDate, date) {
+  const o = withDate ? 1 : 0;
+  return { date: withDate ? r[0] : date, name: r[o], tl: r[o + 1], actual: r[o + 2], ot: r[o + 3], exp: r[o + 4], att: r[o + 5], atot: r[o + 6] };
+}
 
-  if (!fresh && SUP.cache[date]) { SUP.all = SUP.cache[date]; return renderDay(); }
+function updatePresets() {
+  const y = yesterdayIso();
+  const n = daysBetween(SUP.from, SUP.to);
+  const active = !isRange() && SUP.from === y ? "yest" : isRange() && SUP.to === y && n === 7 ? "7" : isRange() && SUP.to === y && n === 14 ? "14" : isRange() ? "custom" : "";
+  document.querySelectorAll("#supPresets .filter-btn").forEach((b) => b.classList.toggle("active", b.dataset.q === active));
+}
+
+function loadRange(from, to, fresh) {
+  if (!from || !to) return;
+  if (from > to) { const t = from; from = to; to = t; }
+  if (daysBetween(from, to) > MAX_RANGE_DAYS) return alert("Maximum range is " + MAX_RANGE_DAYS + " days");
+  SUP.from = from; SUP.to = to;
+  $("supDate").value = isRange() ? "" : from;
+  $("supFrom").value = from; $("supTo").value = to;
+  $("supDay").textContent = periodLabel();
+  updatePresets();
+  const mySeq = ++SUP.seq;
+  const key = from + "|" + to;
+
+  if (!fresh && SUP.cache[key]) { SUP.recs = SUP.cache[key]; return renderDay(); }
 
   $("supSummary").innerHTML = '<div class="nodata"><div class="nodata-title">Loading shift data...</div></div>';
   $("supTable").innerHTML = "";
   $("supRefresh").disabled = true;
 
-  const url = API_URL + "?action=shift&nid=" + encodeURIComponent(SUP.nid) + "&date=" + encodeURIComponent(date) + (fresh ? "&fresh=1" : "");
+  const q = "&nid=" + encodeURIComponent(SUP.nid) + (fresh ? "&fresh=1" : "");
+  const url = isRange()
+    ? API_URL + "?action=shiftrange&from=" + from + "&to=" + to + q
+    : API_URL + "?action=shift&date=" + from + q;
+
   requestWithRetry(url)
     .then((j) => {
       if (mySeq !== SUP.seq) return;
-      SUP.all = (j.rows || []).map((r) => ({ name: r[0], tl: r[1], actual: r[2], ot: r[3], exp: r[4], att: r[5], atot: r[6] }));
-      SUP.cache[date] = SUP.all;
+      SUP.recs = (j.rows || []).map((r) => toRec(r, isRange(), from));
+      SUP.cache[key] = SUP.recs;
       renderDay();
     })
     .catch((e) => {
       if (mySeq !== SUP.seq) return;
       $("supTable").innerHTML = "";
       $("supSummary").innerHTML =
-        '<div class="nodata"><div class="nodata-icon err">' + ICON_ALERT + '</div><h3 class="nodata-title">Could not load this day</h3>' +
+        '<div class="nodata"><div class="nodata-icon err">' + ICON_ALERT + '</div><h3 class="nodata-title">Could not load this period</h3>' +
         '<p class="nodata-text">' + escapeHtml(e && (e.server || e.busy) ? e.message : "Check your internet and try again.") + "</p></div>";
     })
     .then(() => { $("supRefresh").disabled = false; });
 }
 
+/* One row per employee. Single day = the record itself; range = aggregated over the days */
+function aggregate(recs) {
+  const m = {};
+  recs.forEach((r) => {
+    const e = m[r.name] || (m[r.name] = { name: r.name, tl: r.tl, last: "", days: 0, presentDays: 0, actual: 0, ot: 0, exp: 0, s: 0, c: 0 });
+    e.days++;
+    if (isPresent(r.att)) e.presentDays++;
+    e.actual += r.actual; e.ot += r.ot; e.exp += r.exp;
+    if (hasAtot(r)) { e.s += r.atot; e.c++; }
+    if (r.date >= e.last) { e.last = r.date; e.tl = r.tl; }
+  });
+  return Object.keys(m).map((k) => {
+    const e = m[k];
+    return { name: e.name, tl: e.tl, days: e.days, presentDays: e.presentDays, att: e.presentDays + "/" + e.days,
+      actual: r2(e.actual), ot: r2(e.ot), exp: r2(e.exp), atot: e.c ? r2(e.s / e.c) : null };
+  });
+}
+
 function groupData() {
-  const list = $("supPresent").checked ? SUP.all.filter((x) => isPresent(x.att)) : SUP.all;
+  const recs = $("supPresent").checked ? SUP.recs.filter((r) => isPresent(r.att)) : SUP.recs;
+  const list = isRange() ? aggregate(recs)
+    : recs.map((r) => ({ name: r.name, tl: r.tl, days: 1, presentDays: isPresent(r.att) ? 1 : 0, att: r.att, actual: r.actual, ot: r.ot, exp: r.exp, atot: r.atot }));
   const scored = list.filter(hasAtot);
-  return { list: list, scored: scored, hi: scored.filter((x) => x.atot >= THRESH), lo: scored.filter((x) => x.atot < THRESH), none: list.filter((x) => !hasAtot(x)) };
+  return { recs: recs, list: list, scored: scored, hi: scored.filter((x) => x.atot >= THRESH), lo: scored.filter((x) => x.atot < THRESH), none: list.filter((x) => !hasAtot(x)) };
 }
 
 function renderDay() {
   const sum = $("supSummary");
-  if (!SUP.all.length) {
+  if (!SUP.recs.length) {
     const latest = SUP.info && SUP.info.dates && SUP.info.dates[0];
-    sum.innerHTML = '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No data for this day</h3>' +
-      '<p class="nodata-text">There are no records for shift ' + escapeHtml(SUP.info.shift) + " on " + escapeHtml(formatDayLabel(SUP.date)) + "." +
-      (latest ? " Latest available day: " + escapeHtml(formatDayLabel(latest)) + "." : "") + "</p>" +
-      (latest && latest !== SUP.date ? '<button class="retry-btn btn btn-primary" data-jump="' + escapeHtml(latest) + '" type="button">Go to latest day</button>' : "") + "</div>";
+    sum.innerHTML = '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No data for this period</h3>' +
+      '<p class="nodata-text">There are no records for shift ' + escapeHtml(SUP.info.shift) + " in " + escapeHtml(periodLabel()) + "." +
+      (latest ? " Latest available day: " + escapeHtml(shortDate(latest)) + "." : "") + "</p>" +
+      (latest && (isRange() || latest !== SUP.from) ? '<button class="retry-btn btn btn-primary" data-jump="' + escapeHtml(latest) + '" type="button">Go to latest day</button>' : "") + "</div>";
     $("supTable").innerHTML = "";
+    syncButtons(null);
     return;
   }
 
@@ -744,6 +807,7 @@ function renderDay() {
   const w = (c) => (n ? (c / n) * 100 : 0).toFixed(2) + "%";
   const tabBtn = (id, label, c) => '<button class="filter-btn' + (SUP.tab === id ? " active" : "") + '" data-tab="' + id + '" type="button">' + label + " (" + c + ")</button>";
   const tls = new Set(g.list.map((x) => x.tl || "—")).size;
+  const present = sumOf(g.list, (x) => x.presentDays);
 
   sum.innerHTML =
     '<div class="groups">' +
@@ -756,9 +820,10 @@ function renderDay() {
       '<div class="stat"><h3>Total Actual</h3><p>' + sumOf(g.list, (x) => x.actual).toFixed(1) + "</p></div>" +
       '<div class="stat"><h3>Total Overtime</h3><p>' + sumOf(g.list, (x) => x.ot).toFixed(1) + "</p></div>" +
       '<div class="stat"><h3>Total Expected</h3><p>' + sumOf(g.list, (x) => x.exp).toFixed(1) + "</p></div>" +
-      '<div class="stat"><h3>Present</h3><p>' + g.list.filter((x) => isPresent(x.att)).length + "</p></div>" +
+      '<div class="stat"><h3>' + (isRange() ? "Present Days" : "Present") + "</h3><p>" + present + "</p></div>" +
       '<div class="stat"><h3>Team Leads</h3><p>' + tls + "</p></div>" +
     "</div>" +
+    (isRange() ? '<div class="tbl-note" style="padding:0 2px 10px">Range view: each employee is one row. ATOT% = average of their daily ATOT%; hours are summed over the period.</div>' : "") +
     '<div class="filter-buttons tabs" role="group" aria-label="Views">' +
       tabBtn("all", "All employees", g.list.length) + tabBtn("hi", "≥ " + THRESH + "%", g.hi.length) + tabBtn("lo", "< " + THRESH + "%", g.lo.length) + tabBtn("tl", "By Team Lead", tls) +
     "</div>";
@@ -779,60 +844,102 @@ const SORTS = {
   actual_desc: (a, b) => b.actual - a.actual
 };
 
-function currentRows() {
+function tlRows(list) {
+  const by = {};
+  list.forEach((x) => { const k = x.tl || "—"; (by[k] || (by[k] = [])).push(x); });
+  return Object.keys(by).map((k) => {
+    const l = by[k], sc = l.filter(hasAtot);
+    return { tl: k, n: l.length, avg: sc.length ? r2(avgOf(sc, (x) => x.atot)) : null,
+      hi: sc.filter((x) => x.atot >= THRESH).length, lo: sc.filter((x) => x.atot < THRESH).length,
+      act: r2(sumOf(l, (x) => x.actual)), ot: r2(sumOf(l, (x) => x.ot)) };
+  }).sort((a, b) => (a.avg === null ? 1 : b.avg === null ? -1 : a.avg - b.avg));
+}
+
+/* The single source of truth for what the user is looking at → table, Excel and Copy all use it */
+function viewData() {
   const g = groupData();
-  return SUP.tab === "hi" ? g.hi : SUP.tab === "lo" ? g.lo : g.list;
+  const q = $("supSearch").value.trim().toLowerCase();
+  const rangeMode = isRange();
+
+  if (SUP.tab === "tl") {
+    let rows = tlRows(g.list);
+    if (q) rows = rows.filter((r) => r.tl.toLowerCase().indexOf(q) !== -1);
+    return {
+      kind: "tl", g: g, rows: rows, label: TAB_LABEL.tl, sheet: "By Team Lead", file: "ByTeamLead",
+      head: ["TL/ QTC", "Employees", "Employees ≥ " + THRESH + "%", "Employees < " + THRESH + "%", "Total Actual", "Total Overtime", "Avg ATOT %"],
+      aoa: rows.map((r) => [r.tl, r.n, r.hi, r.lo, r.act, r.ot, r.avg === null ? "" : r.avg]),
+      widths: [26, 12, 18, 18, 14, 16, 12]
+    };
+  }
+
+  let rows = SUP.tab === "hi" ? g.hi : SUP.tab === "lo" ? g.lo : g.list;
+  if (q) rows = rows.filter((x) => (x.name + " " + x.tl).toLowerCase().indexOf(q) !== -1);
+  rows = rows.slice().sort(SORTS[$("supSort").value] || SORTS.atot_asc);
+  const meta = { all: ["All employees", "All"], hi: ["80% and above", "Above" + THRESH], lo: ["Below 80%", "Below" + THRESH] }[SUP.tab];
+  return {
+    kind: "emp", g: g, rows: rows, label: TAB_LABEL[SUP.tab], sheet: meta[0], file: meta[1],
+    head: rangeMode ? ["Employee", "TL/ QTC", "Days", "Present Days", "Actual Hours", "Overtime Hours", "Expected Hours", "ATOT %"]
+                    : ["Employee", "TL/ QTC", "Attendance", "Actual Hours", "Overtime Hours", "Expected Hours", "ATOT %"],
+    aoa: rows.map((x) => rangeMode ? [x.name, x.tl, x.days, x.presentDays, x.actual, x.ot, x.exp, hasAtot(x) ? x.atot : ""]
+                                   : [x.name, x.tl, x.att, x.actual, x.ot, x.exp, hasAtot(x) ? x.atot : ""]),
+    widths: rangeMode ? [30, 24, 8, 13, 13, 15, 15, 10] : [30, 24, 12, 13, 15, 15, 10]
+  };
+}
+
+function syncButtons(v) {
+  $("supXlsx").textContent = v ? "⬇ Download Excel · " + v.label + " (" + v.rows.length + ")" : "⬇ Download Excel";
 }
 
 function renderTable() {
   const box = $("supTable");
-  if (!SUP.all.length) return;
-  const g = groupData();
+  if (!SUP.recs.length) return;
+  const v = viewData();
+  syncButtons(v);
 
-  if (SUP.tab === "tl") {
-    const by = {};
-    g.list.forEach((x) => { const k = x.tl || "—"; (by[k] || (by[k] = [])).push(x); });
-    const rows = Object.keys(by).map((k) => {
-      const l = by[k], sc = l.filter(hasAtot);
-      return { tl: k, n: l.length, avg: avgOf(sc, (x) => x.atot), hi: sc.filter((x) => x.atot >= THRESH).length, lo: sc.filter((x) => x.atot < THRESH).length, act: sumOf(l, (x) => x.actual), ot: sumOf(l, (x) => x.ot) };
-    }).sort((a, b) => (a.avg === null ? 1 : b.avg === null ? -1 : a.avg - b.avg));
+  if (!v.rows.length) {
+    box.innerHTML = '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No matching rows</h3></div>';
+    return;
+  }
+
+  if (v.kind === "tl") {
     box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>TL/ QTC</th><th class="n">Employees</th><th class="n">≥ ' + THRESH + '%</th><th class="n">&lt; ' + THRESH +
       '%</th><th class="n">Actual</th><th class="n">Overtime</th><th class="n">Avg ATOT%</th></tr></thead><tbody>' +
-      rows.map((r) => "<tr><td>" + escapeHtml(r.tl) + '</td><td class="n">' + r.n + '</td><td class="n">' + r.hi + '</td><td class="n">' + r.lo + '</td><td class="n">' +
+      v.rows.map((r) => "<tr><td>" + escapeHtml(r.tl) + '</td><td class="n">' + r.n + '</td><td class="n">' + r.hi + '</td><td class="n">' + r.lo + '</td><td class="n">' +
         r.act.toFixed(2) + '</td><td class="n">' + r.ot.toFixed(2) + '</td><td class="n">' + chip(r.avg) + "</td></tr>").join("") +
-      '</tbody></table></div><div class="tbl-note">Sorted by lowest average first.</div>';
+      '</tbody></table></div><div class="tbl-note">' + v.rows.length + " team lead(s) · sorted by lowest average first.</div>";
     return;
   }
 
-  const q = $("supSearch").value.trim().toLowerCase();
-  let rows = currentRows();
-  if (q) rows = rows.filter((x) => (x.name + " " + x.tl).toLowerCase().indexOf(q) !== -1);
-  rows = rows.slice().sort(SORTS[$("supSort").value] || SORTS.atot_asc);
-
-  if (!rows.length) {
-    box.innerHTML = '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No matching employees</h3></div>';
-    return;
-  }
-  box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Employee</th><th>TL/ QTC</th><th>Attendance</th><th class="n">Actual</th><th class="n">Overtime</th><th class="n">Expected</th><th class="n">ATOT%</th></tr></thead><tbody>' +
-    rows.map((x, i) => '<tr><td class="rk">' + (i + 1) + "</td><td>" + escapeHtml(x.name) + "</td><td>" + escapeHtml(x.tl) + "</td><td>" + escapeHtml(x.att || "-") +
+  const rangeMode = isRange();
+  box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Employee</th><th>TL/ QTC</th><th>' + (rangeMode ? "Present Days" : "Attendance") +
+    '</th><th class="n">Actual</th><th class="n">Overtime</th><th class="n">Expected</th><th class="n">ATOT%</th></tr></thead><tbody>' +
+    v.rows.map((x, i) => '<tr><td class="rk">' + (i + 1) + "</td><td>" + escapeHtml(x.name) + "</td><td>" + escapeHtml(x.tl) + "</td><td>" + escapeHtml(x.att || "-") +
       '</td><td class="n">' + x.actual.toFixed(2) + '</td><td class="n">' + x.ot.toFixed(2) + '</td><td class="n">' + x.exp.toFixed(2) + '</td><td class="n">' + chip(x.atot) + "</td></tr>").join("") +
-    "</tbody></table></div>" + '<div class="tbl-note">' + rows.length + " employee(s) shown.</div>";
+    "</tbody></table></div>" + '<div class="tbl-note">' + v.rows.length + " employee(s) shown.</div>";
 }
 
-/* ---------- Export ---------- */
-const XL_HEAD = ["Employee", "TL/ QTC", "Attendance", "Actual Hours", "Overtime Hours", "Expected Hours", "ATOT %"];
-const toAoa = (arr) => arr.map((x) => [x.name, x.tl, x.att, x.actual, x.ot, x.exp, hasAtot(x) ? x.atot : ""]);
-
+/* ---------- Export (Excel / Copy) – always exactly the selected view ---------- */
 function summaryAoa(g) {
-  const line = (label, arr, sc) => [label, arr.length, sc.length ? round1(avgOf(sc, (x) => x.atot)) : "", round1(sumOf(arr, (x) => x.actual)), round1(sumOf(arr, (x) => x.ot))];
+  const line = (label, arr) => {
+    const sc = arr.filter(hasAtot);
+    return [label, arr.length, sc.length ? r2(avgOf(sc, (x) => x.atot)) : "", r2(sumOf(arr, (x) => x.actual)), r2(sumOf(arr, (x) => x.ot))];
+  };
   return [
-    [SUPERVISOR_TITLE_TXT(), SUP.info.name], ["Shift", SUP.info.shift], ["Date", SUP.date], ["Threshold", THRESH + "%"], [],
+    [SUP.info.title || "Shift Technical Supervisor", SUP.info.name], ["Shift", SUP.info.shift],
+    ["Period", isRange() ? SUP.from + " → " + SUP.to + " (" + daysBetween(SUP.from, SUP.to) + " days)" : SUP.from],
+    ["Threshold", THRESH + "%"], ["Present only", $("supPresent").checked ? "Yes" : "No"], [],
     ["Group", "Employees", "Avg ATOT %", "Total Actual", "Total Overtime"],
-    line("≥ " + THRESH + "%", g.hi, g.hi), line("< " + THRESH + "%", g.lo, g.lo), line("Whole shift", g.list, g.scored), line("No ATOT", g.none, [])
+    line("≥ " + THRESH + "%", g.hi), line("< " + THRESH + "%", g.lo), line("Whole shift", g.list), line("No ATOT", g.none)
   ];
 }
-const SUPERVISOR_TITLE_TXT = () => (SUP.info && SUP.info.title) || "Shift Technical Supervisor";
-const round1 = (n) => Math.round(n * 100) / 100;
+
+function dailyAoa(v) {
+  const names = v.kind === "emp" ? new Set(v.rows.map((x) => x.name)) : null;
+  const recs = v.g.recs.filter((r) => !names || names.has(r.name)).slice()
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)) || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return [["Date", "Employee", "TL/ QTC", "Attendance", "Actual Hours", "Overtime Hours", "Expected Hours", "ATOT %"]]
+    .concat(recs.map((r) => [r.date, r.name, r.tl, r.att, r.actual, r.ot, r.exp, hasAtot(r) ? r.atot : ""]));
+}
 
 let xlsxPromise = null;
 function loadSheetJS() {
@@ -848,7 +955,9 @@ function loadSheetJS() {
   return xlsxPromise;
 }
 
-function fileBase() { return "Shift_" + SUP.info.shift + "_" + SUP.date; }
+function fileBase(v) {
+  return "Shift_" + SUP.info.shift + "_" + (isRange() ? SUP.from + "_to_" + SUP.to : SUP.from) + "_" + v.file;
+}
 
 function downloadBlob(blob, name) {
   const a = document.createElement("a");
@@ -857,38 +966,38 @@ function downloadBlob(blob, name) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
-function csvEscape(v) { const t = String(v === null || v === undefined ? "" : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
+function csvEscape(x) { const t = String(x === null || x === undefined ? "" : x); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
 
 function exportExcel() {
-  if (!SUP.all.length) return alert("No data to export for this day.");
+  if (!SUP.recs.length) return alert("No data to export for this period.");
+  const v = viewData();
+  if (!v.rows.length) return alert("Nothing to export in this view.");
   const btn = $("supXlsx"); btn.disabled = true;
-  const g = groupData();
+
   loadSheetJS().then(() => {
     const wb = XLSX.utils.book_new();
     const add = (name, aoa, widths) => {
       const ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws["!cols"] = widths.map((w) => ({ wch: w }));
+      if (widths) ws["!cols"] = widths.map((w) => ({ wch: w }));
       XLSX.utils.book_append_sheet(wb, ws, name);
     };
-    const W = [30, 24, 12, 13, 15, 15, 10];
-    add("Summary", summaryAoa(g), [26, 24, 12, 14, 16]);
-    add("80% and above", [XL_HEAD].concat(toAoa(g.hi.slice().sort(SORTS.atot_desc))), W);
-    add("Below 80%", [XL_HEAD].concat(toAoa(g.lo.slice().sort(SORTS.atot_asc))), W);
-    add("All employees", [XL_HEAD].concat(toAoa(g.list.slice().sort(SORTS.name))), W);
-    XLSX.writeFile(wb, fileBase() + ".xlsx");
+    add(v.sheet, [v.head].concat(v.aoa), v.widths);                 // selected view = first sheet
+    add("Summary", summaryAoa(v.g), [26, 24, 12, 14, 16]);
+    if (isRange()) add("Daily records", dailyAoa(v), [12, 30, 24, 12, 13, 15, 15, 10]);
+    XLSX.writeFile(wb, fileBase(v) + ".xlsx");
   }).catch(() => {
-    // fallback: CSV (opens in Excel & Google Sheets)
-    const rows = [XL_HEAD].concat(toAoa(g.list.slice().sort(SORTS.name)));
-    downloadBlob(new Blob(["\ufeff" + rows.map((r) => r.map(csvEscape).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }), fileBase() + ".csv");
+    const rows = [v.head].concat(v.aoa);   // fallback: CSV of the selected view
+    downloadBlob(new Blob(["\ufeff" + rows.map((r) => r.map(csvEscape).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }), fileBase(v) + ".csv");
   }).then(() => { btn.disabled = false; });
 }
 
 function copyForSheets() {
-  if (!SUP.all.length) return alert("No data to copy for this day.");
-  const rows = [XL_HEAD].concat(toAoa(currentRows().slice().sort(SORTS[$("supSort").value] || SORTS.atot_asc)));
-  const tsv = rows.map((r) => r.join("\t")).join("\n");
+  if (!SUP.recs.length) return alert("No data to copy for this period.");
+  const v = viewData();
+  if (!v.rows.length) return alert("Nothing to copy in this view.");
+  const tsv = [v.head].concat(v.aoa).map((r) => r.map((c) => String(c === null || c === undefined ? "" : c).replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n");
   const btn = $("supCopy"), old = btn.textContent;
-  const done = (ok) => { btn.textContent = ok ? "Copied ✓ Paste in Google Sheets" : "Copy failed"; setTimeout(() => { btn.textContent = old; }, 2200); };
+  const done = (ok) => { btn.textContent = ok ? "Copied ✓ (" + v.label + ") — paste in Google Sheets" : "Copy failed"; setTimeout(() => { btn.textContent = old; }, 2600); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(tsv).then(() => done(true), () => done(false));
   } else {
@@ -900,12 +1009,33 @@ function copyForSheets() {
 
 /* ---------- Supervisor events ---------- */
 (function () {
-  const shift = (days) => { const d = new Date(SUP.date + "T00:00:00"); d.setDate(d.getDate() + days); return isoDate(d); };
-  $("supDate").addEventListener("change", (e) => loadDay(e.target.value));
-  $("supPrev").addEventListener("click", () => loadDay(shift(-1)));
-  $("supNext").addEventListener("click", () => { const n = shift(1); if (n <= isoDate(new Date())) loadDay(n); });
-  $("supYest").addEventListener("click", () => loadDay(yesterdayIso()));
-  $("supRefresh").addEventListener("click", () => loadDay(SUP.date, true));
+  const today = () => isoDate(new Date());
+  $("supDate").addEventListener("change", (e) => { if (e.target.value) loadRange(e.target.value, e.target.value); });
+
+  function step(dir) {
+    const len = daysBetween(SUP.from, SUP.to);
+    const from = addDays(SUP.from, dir * len), to = addDays(SUP.to, dir * len);
+    if (to > today()) return;
+    loadRange(from, to);
+  }
+  $("supPrev").addEventListener("click", () => step(-1));
+  $("supNext").addEventListener("click", () => step(1));
+
+  $("supPresets").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-q]"); if (!b) return;
+    const q = b.dataset.q, y = yesterdayIso();
+    if (q === "yest") { $("supRange").classList.remove("show"); loadRange(y, y); }
+    else if (q === "custom") { $("supRange").classList.toggle("show"); }
+    else { $("supRange").classList.remove("show"); loadRange(addDays(y, -(Number(q) - 1)), y); }
+  });
+
+  $("supApply").addEventListener("click", () => {
+    const f = $("supFrom").value, t = $("supTo").value;
+    if (!f || !t) return alert("Please select both dates");
+    loadRange(f, t);
+  });
+
+  $("supRefresh").addEventListener("click", () => loadRange(SUP.from, SUP.to, true));
   $("supSearch").addEventListener("input", renderTable);
   $("supSort").addEventListener("change", renderTable);
   $("supPresent").addEventListener("change", renderDay);
@@ -913,7 +1043,7 @@ function copyForSheets() {
   $("supCopy").addEventListener("click", copyForSheets);
   $("supSummary").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab]"); if (t) return setTab(t.dataset.tab);
-    const j = e.target.closest("[data-jump]"); if (j) loadDay(j.dataset.jump);
+    const j = e.target.closest("[data-jump]"); if (j) loadRange(j.dataset.jump, j.dataset.jump);
   });
 })();
 
