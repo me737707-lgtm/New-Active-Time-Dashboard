@@ -165,6 +165,54 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
 .retry-btn{margin-top:20px}
 .app-footer{margin-top:48px;text-align:center;font-size:12px;color:var(--text-4)}
 
+/* ===== Supervisor view ===== */
+.sup-view{display:none}
+.sup-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh2);padding:16px 20px;margin-bottom:16px;animation:riseIn .3s var(--ease) backwards}
+.sup-id h2{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.sup-id p{font-size:13px;color:var(--text-3)}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600;background:var(--primary-soft);color:var(--primary)}
+.pill.soft{background:var(--surface-3);color:var(--text-2)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh2);padding:14px 16px;margin-bottom:16px}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.ctrl+.ctrl{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.ctrl .grow{flex:1}
+.in{height:34px;padding:0 10px;font-size:13px;border:1px solid var(--border-strong);border-bottom:2px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text)}
+.in:focus{outline:none;border-bottom-color:var(--primary)}
+select.in{padding-right:6px}
+.btn-sm{height:34px;padding:0 14px;font-size:13px}
+.btn-ghost{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.btn-ghost:hover{background:var(--surface-3)}
+.btn-ghost:disabled,.btn:disabled{opacity:.55;pointer-events:none}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2);cursor:pointer}
+.groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.gcard{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--c);border-radius:var(--r-lg);box-shadow:var(--sh2);padding:16px 20px;transition:box-shadow .18s,transform .18s var(--ease);animation:riseIn .35s var(--ease) backwards}
+.gcard:hover{box-shadow:var(--sh4);transform:translateY(-2px)}
+.g-hi{--c:var(--success)}.g-lo{--c:var(--danger)}.g-all{--c:var(--primary)}
+.g-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+.g-val{font-size:30px;font-weight:600;letter-spacing:-.015em;color:var(--c);font-variant-numeric:tabular-nums}
+.g-sub{font-size:12.5px;color:var(--text-2)}
+.dist{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--surface-4);margin-bottom:16px}
+.dist i{display:block;height:100%;transition:width .5s var(--ease)}
+.dist .d-hi{background:var(--success)}.dist .d-lo{background:var(--danger)}.dist .d-no{background:var(--border-strong)}
+.minis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.minis .stat p{font-size:20px}
+.tabs{margin-bottom:12px}
+.tbl-wrap{overflow:auto;max-height:70vh;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh2)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surface-2);text-align:left;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);padding:10px 12px;border-bottom:1px solid var(--border)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover{background:var(--surface-2)}
+.tbl .n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl td.rk{color:var(--text-4);width:44px}
+.chip{display:inline-block;min-width:64px;text-align:center;padding:2px 10px;border-radius:999px;font-weight:600;font-size:12px;background:var(--surface-3);color:var(--text-2);font-variant-numeric:tabular-nums}
+.chip.good{background:var(--success-soft);color:var(--success)}.chip.low{background:var(--danger-soft);color:var(--danger)}
+.tbl-note{padding:10px 14px;font-size:12px;color:var(--text-4)}
+@media(max-width:960px){.minis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.groups{grid-template-columns:1fr}.ctrl .grow{flex-basis:100%}}
+@media(max-width:600px){.minis{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+
 @keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 @keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
 @keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
@@ -241,8 +289,8 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
       </button>
     </div>
     <div class="filter-buttons" role="group" aria-label="Quick date ranges">
-      <button class="filter-btn" onclick="filterYesterday()" type="button">Yesterday</button>
-      <button class="filter-btn active" onclick="filterLastDays(7)" type="button">Last 7 Days</button>
+      <button class="filter-btn active" onclick="filterYesterday()" type="button">Yesterday</button>
+      <button class="filter-btn" onclick="filterLastDays(7)" type="button">Last 7 Days</button>
       <button class="filter-btn" onclick="filterLastDays(14)" type="button">Last 14 Days</button>
       <button class="filter-btn" onclick="filterLastMonth()" type="button">Last Month</button>
       <button class="filter-btn" onclick="toggleCustomRange()" type="button">Custom Range</button>
@@ -265,6 +313,40 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
   </section>
 
   <section id="results" class="results" aria-live="polite"></section>
+  <section id="supView" class="sup-view" aria-label="Shift supervisor dashboard">
+    <div class="sup-banner">
+      <div class="sup-id"><h2 id="supName"></h2><p id="supTitle"></p></div>
+      <div class="pills"><span class="pill" id="supShift"></span><span class="pill soft" id="supDay"></span></div>
+    </div>
+
+    <div class="panel">
+      <div class="ctrl">
+        <button class="btn btn-ghost btn-sm" id="supPrev" type="button" aria-label="Previous day">‹</button>
+        <input class="in" type="date" id="supDate" aria-label="Day">
+        <button class="btn btn-ghost btn-sm" id="supNext" type="button" aria-label="Next day">›</button>
+        <button class="btn btn-ghost btn-sm" id="supYest" type="button">Yesterday</button>
+        <span class="grow"></span>
+        <button class="btn btn-ghost btn-sm" id="supRefresh" type="button" title="Reload this day">↻ Refresh</button>
+      </div>
+      <div class="ctrl">
+        <input class="in grow" type="search" id="supSearch" placeholder="Search employee or TL/ QTC..." aria-label="Search">
+        <select class="in" id="supSort" aria-label="Sort">
+          <option value="atot_asc">ATOT% · low → high</option>
+          <option value="atot_desc">ATOT% · high → low</option>
+          <option value="name">Name · A → Z</option>
+          <option value="actual_desc">Actual hours · high → low</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="supPresent"> Present only</label>
+        <span class="grow"></span>
+        <button class="btn btn-primary btn-sm" id="supXlsx" type="button">⬇ Download Excel</button>
+        <button class="btn btn-ghost btn-sm" id="supCopy" type="button">Copy for Google Sheets</button>
+      </div>
+    </div>
+
+    <div id="supSummary"></div>
+    <div id="supTable"></div>
+  </section>
+
   <footer class="app-footer">METI Active Time Dashboard · Internal analytics tool</footer>
 </div>
 
@@ -419,6 +501,7 @@ function search(forceFresh) {
   $("results").classList.remove("show");
   $("stats").classList.remove("show");
   $("filterCard").style.display = "none";
+  $("supView").style.display = "none";
 
   let p = 0;
   const fill = $("progressFill"), txt = $("progressText");
@@ -455,6 +538,7 @@ function collapse() {
 
 function render(json) {
   collapse();
+  if (json && json.role === "supervisor") return renderSupervisor(json);
   allData = (json && json.data) || [];
   employeeName = (json && json.name) || "";
 
@@ -470,7 +554,7 @@ function render(json) {
 
   $("twText").textContent = "Welcome, " + (employeeName || "Employee");
   $("filterCard").style.display = "block";
-  filterLastDays(7);
+  filterYesterday();
 }
 
 function showError(msg) {
@@ -573,6 +657,265 @@ function applyCustomRange() {
 }
 
 function clearFilter() { apply(() => true, 5); }
+
+
+/* ============================================
+   👔 SUPERVISOR VIEW
+============================================ */
+const THRESH = 80;                         // % ATOT split (>= 80 → "above")
+const SUP = { nid: "", info: null, date: "", all: [], cache: {}, tab: "all", seq: 0 };
+
+const yesterdayIso = () => { const d = new Date(); d.setDate(d.getDate() - 1); return isoDate(d); };
+const isPresent = (a) => /\bP\b/i.test(a || "") || /present/i.test(a || "");
+const hasAtot = (x) => typeof x.atot === "number";
+const supCls = (v) => (v >= THRESH ? "good" : "low");
+const avgOf = (arr, f) => (arr.length ? arr.reduce((s, x) => s + f(x), 0) / arr.length : null);
+const sumOf = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+const pct2 = (v) => (v === null || v === undefined ? "-" : v.toFixed(2) + "%");
+const chip = (v) => (typeof v === "number" ? '<span class="chip ' + supCls(v) + '">' + v.toFixed(2) + "%</span>" : '<span class="chip">-</span>');
+
+function renderSupervisor(json) {
+  SUP.nid = cleanNid(nidInput.value);
+  SUP.info = json; SUP.cache = {}; SUP.tab = "all"; SUP.all = [];
+  $("twText").textContent = "Welcome, " + json.name;
+  $("supName").textContent = json.name;
+  $("supTitle").textContent = json.title;
+  $("supShift").textContent = "Shift " + json.shift;
+  $("supDate").max = isoDate(new Date());
+  if (json.dates && json.dates.length) $("supDate").min = json.dates[json.dates.length - 1];
+  $("supView").style.display = "block";
+  loadDay(yesterdayIso());
+}
+
+function loadDay(date, fresh) {
+  if (!date) return;
+  SUP.date = date;
+  $("supDate").value = date;
+  $("supDay").textContent = formatDayLabel(date);
+  const mySeq = ++SUP.seq;
+
+  if (!fresh && SUP.cache[date]) { SUP.all = SUP.cache[date]; return renderDay(); }
+
+  $("supSummary").innerHTML = '<div class="nodata"><div class="nodata-title">Loading shift data...</div></div>';
+  $("supTable").innerHTML = "";
+  $("supRefresh").disabled = true;
+
+  const url = API_URL + "?action=shift&nid=" + encodeURIComponent(SUP.nid) + "&date=" + encodeURIComponent(date) + (fresh ? "&fresh=1" : "");
+  requestWithRetry(url)
+    .then((j) => {
+      if (mySeq !== SUP.seq) return;
+      SUP.all = (j.rows || []).map((r) => ({ name: r[0], tl: r[1], actual: r[2], ot: r[3], exp: r[4], att: r[5], atot: r[6] }));
+      SUP.cache[date] = SUP.all;
+      renderDay();
+    })
+    .catch((e) => {
+      if (mySeq !== SUP.seq) return;
+      $("supTable").innerHTML = "";
+      $("supSummary").innerHTML =
+        '<div class="nodata"><div class="nodata-icon err">' + ICON_ALERT + '</div><h3 class="nodata-title">Could not load this day</h3>' +
+        '<p class="nodata-text">' + escapeHtml(e && (e.server || e.busy) ? e.message : "Check your internet and try again.") + "</p></div>";
+    })
+    .then(() => { $("supRefresh").disabled = false; });
+}
+
+function groupData() {
+  const list = $("supPresent").checked ? SUP.all.filter((x) => isPresent(x.att)) : SUP.all;
+  const scored = list.filter(hasAtot);
+  return { list: list, scored: scored, hi: scored.filter((x) => x.atot >= THRESH), lo: scored.filter((x) => x.atot < THRESH), none: list.filter((x) => !hasAtot(x)) };
+}
+
+function renderDay() {
+  const sum = $("supSummary");
+  if (!SUP.all.length) {
+    const latest = SUP.info && SUP.info.dates && SUP.info.dates[0];
+    sum.innerHTML = '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No data for this day</h3>' +
+      '<p class="nodata-text">There are no records for shift ' + escapeHtml(SUP.info.shift) + " on " + escapeHtml(formatDayLabel(SUP.date)) + "." +
+      (latest ? " Latest available day: " + escapeHtml(formatDayLabel(latest)) + "." : "") + "</p>" +
+      (latest && latest !== SUP.date ? '<button class="retry-btn btn btn-primary" data-jump="' + escapeHtml(latest) + '" type="button">Go to latest day</button>' : "") + "</div>";
+    $("supTable").innerHTML = "";
+    return;
+  }
+
+  const g = groupData(), n = g.list.length;
+  const share = (c) => (n ? Math.round((c / n) * 100) + "% of shift" : "0%");
+  const card = (cls, tab, label, count, avg, sub) =>
+    '<button class="gcard ' + cls + '" data-tab="' + tab + '" type="button"><span class="g-label">' + label + '</span><span class="g-val">' + pct2(avg) +
+    '</span><span class="g-sub">' + count + " employees · " + sub + "</span></button>";
+  const w = (c) => (n ? (c / n) * 100 : 0).toFixed(2) + "%";
+  const tabBtn = (id, label, c) => '<button class="filter-btn' + (SUP.tab === id ? " active" : "") + '" data-tab="' + id + '" type="button">' + label + " (" + c + ")</button>";
+  const tls = new Set(g.list.map((x) => x.tl || "—")).size;
+
+  sum.innerHTML =
+    '<div class="groups">' +
+      card("g-hi", "hi", "≥ " + THRESH + "% achievement", g.hi.length, avgOf(g.hi, (x) => x.atot), share(g.hi.length)) +
+      card("g-lo", "lo", "< " + THRESH + "% achievement", g.lo.length, avgOf(g.lo, (x) => x.atot), share(g.lo.length)) +
+      card("g-all", "all", "Whole shift · avg ATOT%", g.list.length, avgOf(g.scored, (x) => x.atot), g.none.length + " without ATOT") +
+    "</div>" +
+    '<div class="dist" title="Green ≥ ' + THRESH + '% · Red < ' + THRESH + '% · Grey no ATOT"><i class="d-hi" style="width:' + w(g.hi.length) + '"></i><i class="d-lo" style="width:' + w(g.lo.length) + '"></i><i class="d-no" style="width:' + w(g.none.length) + '"></i></div>' +
+    '<div class="minis">' +
+      '<div class="stat"><h3>Total Actual</h3><p>' + sumOf(g.list, (x) => x.actual).toFixed(1) + "</p></div>" +
+      '<div class="stat"><h3>Total Overtime</h3><p>' + sumOf(g.list, (x) => x.ot).toFixed(1) + "</p></div>" +
+      '<div class="stat"><h3>Total Expected</h3><p>' + sumOf(g.list, (x) => x.exp).toFixed(1) + "</p></div>" +
+      '<div class="stat"><h3>Present</h3><p>' + g.list.filter((x) => isPresent(x.att)).length + "</p></div>" +
+      '<div class="stat"><h3>Team Leads</h3><p>' + tls + "</p></div>" +
+    "</div>" +
+    '<div class="filter-buttons tabs" role="group" aria-label="Views">' +
+      tabBtn("all", "All employees", g.list.length) + tabBtn("hi", "≥ " + THRESH + "%", g.hi.length) + tabBtn("lo", "< " + THRESH + "%", g.lo.length) + tabBtn("tl", "By Team Lead", tls) +
+    "</div>";
+  renderTable();
+}
+
+function setTab(t) {
+  SUP.tab = t;
+  document.querySelectorAll("#supSummary .filter-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
+  renderTable();
+}
+
+function atotKey(x) { return hasAtot(x) ? x.atot : null; }
+const SORTS = {
+  atot_asc: (a, b) => { const x = atotKey(a), y = atotKey(b); return x === null ? (y === null ? 0 : 1) : y === null ? -1 : x - y; },
+  atot_desc: (a, b) => { const x = atotKey(a), y = atotKey(b); return x === null ? (y === null ? 0 : 1) : y === null ? -1 : y - x; },
+  name: (a, b) => String(a.name).localeCompare(String(b.name)),
+  actual_desc: (a, b) => b.actual - a.actual
+};
+
+function currentRows() {
+  const g = groupData();
+  return SUP.tab === "hi" ? g.hi : SUP.tab === "lo" ? g.lo : g.list;
+}
+
+function renderTable() {
+  const box = $("supTable");
+  if (!SUP.all.length) return;
+  const g = groupData();
+
+  if (SUP.tab === "tl") {
+    const by = {};
+    g.list.forEach((x) => { const k = x.tl || "—"; (by[k] || (by[k] = [])).push(x); });
+    const rows = Object.keys(by).map((k) => {
+      const l = by[k], sc = l.filter(hasAtot);
+      return { tl: k, n: l.length, avg: avgOf(sc, (x) => x.atot), hi: sc.filter((x) => x.atot >= THRESH).length, lo: sc.filter((x) => x.atot < THRESH).length, act: sumOf(l, (x) => x.actual), ot: sumOf(l, (x) => x.ot) };
+    }).sort((a, b) => (a.avg === null ? 1 : b.avg === null ? -1 : a.avg - b.avg));
+    box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>TL/ QTC</th><th class="n">Employees</th><th class="n">≥ ' + THRESH + '%</th><th class="n">&lt; ' + THRESH +
+      '%</th><th class="n">Actual</th><th class="n">Overtime</th><th class="n">Avg ATOT%</th></tr></thead><tbody>' +
+      rows.map((r) => "<tr><td>" + escapeHtml(r.tl) + '</td><td class="n">' + r.n + '</td><td class="n">' + r.hi + '</td><td class="n">' + r.lo + '</td><td class="n">' +
+        r.act.toFixed(2) + '</td><td class="n">' + r.ot.toFixed(2) + '</td><td class="n">' + chip(r.avg) + "</td></tr>").join("") +
+      '</tbody></table></div><div class="tbl-note">Sorted by lowest average first.</div>';
+    return;
+  }
+
+  const q = $("supSearch").value.trim().toLowerCase();
+  let rows = currentRows();
+  if (q) rows = rows.filter((x) => (x.name + " " + x.tl).toLowerCase().indexOf(q) !== -1);
+  rows = rows.slice().sort(SORTS[$("supSort").value] || SORTS.atot_asc);
+
+  if (!rows.length) {
+    box.innerHTML = '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No matching employees</h3></div>';
+    return;
+  }
+  box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Employee</th><th>TL/ QTC</th><th>Attendance</th><th class="n">Actual</th><th class="n">Overtime</th><th class="n">Expected</th><th class="n">ATOT%</th></tr></thead><tbody>' +
+    rows.map((x, i) => '<tr><td class="rk">' + (i + 1) + "</td><td>" + escapeHtml(x.name) + "</td><td>" + escapeHtml(x.tl) + "</td><td>" + escapeHtml(x.att || "-") +
+      '</td><td class="n">' + x.actual.toFixed(2) + '</td><td class="n">' + x.ot.toFixed(2) + '</td><td class="n">' + x.exp.toFixed(2) + '</td><td class="n">' + chip(x.atot) + "</td></tr>").join("") +
+    "</tbody></table></div>" + '<div class="tbl-note">' + rows.length + " employee(s) shown.</div>";
+}
+
+/* ---------- Export ---------- */
+const XL_HEAD = ["Employee", "TL/ QTC", "Attendance", "Actual Hours", "Overtime Hours", "Expected Hours", "ATOT %"];
+const toAoa = (arr) => arr.map((x) => [x.name, x.tl, x.att, x.actual, x.ot, x.exp, hasAtot(x) ? x.atot : ""]);
+
+function summaryAoa(g) {
+  const line = (label, arr, sc) => [label, arr.length, sc.length ? round1(avgOf(sc, (x) => x.atot)) : "", round1(sumOf(arr, (x) => x.actual)), round1(sumOf(arr, (x) => x.ot))];
+  return [
+    [SUPERVISOR_TITLE_TXT(), SUP.info.name], ["Shift", SUP.info.shift], ["Date", SUP.date], ["Threshold", THRESH + "%"], [],
+    ["Group", "Employees", "Avg ATOT %", "Total Actual", "Total Overtime"],
+    line("≥ " + THRESH + "%", g.hi, g.hi), line("< " + THRESH + "%", g.lo, g.lo), line("Whole shift", g.list, g.scored), line("No ATOT", g.none, [])
+  ];
+}
+const SUPERVISOR_TITLE_TXT = () => (SUP.info && SUP.info.title) || "Shift Technical Supervisor";
+const round1 = (n) => Math.round(n * 100) / 100;
+
+let xlsxPromise = null;
+function loadSheetJS() {
+  if (window.XLSX) return Promise.resolve();
+  if (xlsxPromise) return xlsxPromise;
+  xlsxPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    sc.onload = resolve;
+    sc.onerror = () => { xlsxPromise = null; reject(new Error("SheetJS failed to load")); };
+    document.head.appendChild(sc);
+  });
+  return xlsxPromise;
+}
+
+function fileBase() { return "Shift_" + SUP.info.shift + "_" + SUP.date; }
+
+function downloadBlob(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+function csvEscape(v) { const t = String(v === null || v === undefined ? "" : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
+
+function exportExcel() {
+  if (!SUP.all.length) return alert("No data to export for this day.");
+  const btn = $("supXlsx"); btn.disabled = true;
+  const g = groupData();
+  loadSheetJS().then(() => {
+    const wb = XLSX.utils.book_new();
+    const add = (name, aoa, widths) => {
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"] = widths.map((w) => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    };
+    const W = [30, 24, 12, 13, 15, 15, 10];
+    add("Summary", summaryAoa(g), [26, 24, 12, 14, 16]);
+    add("80% and above", [XL_HEAD].concat(toAoa(g.hi.slice().sort(SORTS.atot_desc))), W);
+    add("Below 80%", [XL_HEAD].concat(toAoa(g.lo.slice().sort(SORTS.atot_asc))), W);
+    add("All employees", [XL_HEAD].concat(toAoa(g.list.slice().sort(SORTS.name))), W);
+    XLSX.writeFile(wb, fileBase() + ".xlsx");
+  }).catch(() => {
+    // fallback: CSV (opens in Excel & Google Sheets)
+    const rows = [XL_HEAD].concat(toAoa(g.list.slice().sort(SORTS.name)));
+    downloadBlob(new Blob(["\ufeff" + rows.map((r) => r.map(csvEscape).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }), fileBase() + ".csv");
+  }).then(() => { btn.disabled = false; });
+}
+
+function copyForSheets() {
+  if (!SUP.all.length) return alert("No data to copy for this day.");
+  const rows = [XL_HEAD].concat(toAoa(currentRows().slice().sort(SORTS[$("supSort").value] || SORTS.atot_asc)));
+  const tsv = rows.map((r) => r.join("\t")).join("\n");
+  const btn = $("supCopy"), old = btn.textContent;
+  const done = (ok) => { btn.textContent = ok ? "Copied ✓ Paste in Google Sheets" : "Copy failed"; setTimeout(() => { btn.textContent = old; }, 2200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(tsv).then(() => done(true), () => done(false));
+  } else {
+    const ta = document.createElement("textarea"); ta.value = tsv; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    ta.remove(); done(ok);
+  }
+}
+
+/* ---------- Supervisor events ---------- */
+(function () {
+  const shift = (days) => { const d = new Date(SUP.date + "T00:00:00"); d.setDate(d.getDate() + days); return isoDate(d); };
+  $("supDate").addEventListener("change", (e) => loadDay(e.target.value));
+  $("supPrev").addEventListener("click", () => loadDay(shift(-1)));
+  $("supNext").addEventListener("click", () => { const n = shift(1); if (n <= isoDate(new Date())) loadDay(n); });
+  $("supYest").addEventListener("click", () => loadDay(yesterdayIso()));
+  $("supRefresh").addEventListener("click", () => loadDay(SUP.date, true));
+  $("supSearch").addEventListener("input", renderTable);
+  $("supSort").addEventListener("change", renderTable);
+  $("supPresent").addEventListener("change", renderDay);
+  $("supXlsx").addEventListener("click", exportExcel);
+  $("supCopy").addEventListener("click", copyForSheets);
+  $("supSummary").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-tab]"); if (t) return setTab(t.dataset.tab);
+    const j = e.target.closest("[data-jump]"); if (j) loadDay(j.dataset.jump);
+  });
+})();
 
 /* ---------- Theme ---------- */
 (function () {
