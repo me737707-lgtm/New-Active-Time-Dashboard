@@ -385,7 +385,7 @@ const FETCH_TIMEOUT = 30000;
 const ATOT_GOOD = 75;                 // ATOT% >= 75  → green
 const ATOT_MID  = 50;                 // ATOT% >= 50  → amber, below → red
 
-let allData = [], filteredData = [], employeeName = "";
+let allData = [], filteredData = [], employeeName = "", systemLatest = "";
 
 const ICON_ALERT = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/><path d='M12 9v4'/><path d='M12 17h.01'/></svg>";
 const ICON_INBOX = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>";
@@ -552,6 +552,7 @@ function render(json) {
   if (json && json.role === "supervisor") return renderSupervisor(json);
   allData = (json && json.data) || [];
   employeeName = (json && json.name) || "";
+  systemLatest = (json && json.latest) || "";
 
   if (!allData.length) {
     $("twText").textContent = "Active Time Dashboard";
@@ -578,6 +579,13 @@ function showError(msg) {
 }
 
 function atotClass(v) { return v >= ATOT_GOOD ? "good" : v >= ATOT_MID ? "mid" : "low"; }
+
+function emptyHint() {
+  let h = "";
+  if (allData.length) h += "<br>Your most recent record is " + escapeHtml(formatDayLabel(allData[0].date)) + ".";
+  if (systemLatest) h += "<br>System data is updated through " + escapeHtml(formatDayLabel(systemLatest)) + ".";
+  return h;
+}
 
 function displayData(data) {
   let aSum = 0, oSum = 0, eSum = 0, tSum = 0, tCnt = 0, present = 0, html = "";
@@ -617,7 +625,7 @@ function displayData(data) {
   const res = $("results");
   res.innerHTML = data.length ? html :
     '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No records in this period</h3>' +
-    '<p class="nodata-text">Try another date range, or choose All Time.</p></div>';
+    '<p class="nodata-text">Try another date range, or choose All Time.' + emptyHint() + '</p></div>';
   res.classList.add("show");
   $("stats").classList.add("show");
 
