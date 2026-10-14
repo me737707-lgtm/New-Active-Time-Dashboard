@@ -225,6 +225,8 @@ select.in{padding-right:6px}
 .ctrl-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
 @media(max-width:760px){.shiftcards{grid-template-columns:1fr}}
 
+.notice{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;background:var(--warning-soft);color:var(--text);border:1px solid var(--border);border-left:3px solid var(--warning);border-radius:var(--r-lg);padding:12px 16px;font-size:13px;line-height:1.55;animation:riseIn .3s var(--ease) backwards}
+.notice b{font-weight:600}
 @keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 @keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
 @keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
@@ -401,7 +403,7 @@ select.in{padding-right:6px}
 ============================================ */
 const API_URL = "https://script.google.com/macros/s/AKfycbw-XDQfIYmRvB95XbKQiS-MFbPpPYcpqAM6biGEmmtESxNNxzNRnMXeIFTzywgkOYzX7Q/exec";
 
-const CACHE_TTL     = 5 * 60 * 1000;  // 5 min (kept in sessionStorage → cleared when tab closes)
+const CACHE_TTL     = 60 * 1000;      // 1 min (sessionStorage → cleared when the tab closes). Server cache is invalidated instantly on every data change.
 const FETCH_TIMEOUT = 30000;
 const ATOT_GOOD = 75;                 // ATOT% >= 75  → green
 const ATOT_MID  = 50;                 // ATOT% >= 50  → amber, below → red
@@ -587,7 +589,21 @@ function render(json) {
 
   $("twText").textContent = "Welcome, " + (employeeName || "Employee");
   $("filterCard").style.display = "block";
-  filterYesterday();
+  smartDefault();
+}
+
+/* Default = Yesterday. If the employee has no record for yesterday (day off, late data…)
+   show their most recent record day instead of an empty screen, and say so. */
+function smartDefault() {
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yIso = isoDate(yesterday);
+  if (allData.some((r) => r.date === yIso) || !allData.length) return filterYesterday();
+
+  const latest = allData[0].date;                         // allData is newest-first
+  const note = "<span><b>No record for yesterday (" + escapeHtml(formatDayLabel(yIso)) + ").</b> Showing your most recent record: <b>" +
+    escapeHtml(formatDayLabel(latest)) + "</b>." + (systemLatest ? " System data is updated through " + escapeHtml(formatDayLabel(systemLatest)) + "." : "") +
+    " Use <b>Last 7 Days</b> or <b>All Time</b> to see more.</span>";
+  apply((r) => r.date === latest, -1, note);
 }
 
 function showError(msg) {
@@ -608,7 +624,7 @@ function emptyHint() {
   return h;
 }
 
-function displayData(data) {
+function displayData(data, notice) {
   let aSum = 0, oSum = 0, eSum = 0, tSum = 0, tCnt = 0, present = 0, html = "";
 
   data.forEach((r, i) => {
@@ -647,6 +663,7 @@ function displayData(data) {
   res.innerHTML = data.length ? html :
     '<div class="nodata"><div class="nodata-icon">' + ICON_INBOX + '</div><h3 class="nodata-title">No records in this period</h3>' +
     '<p class="nodata-text">Try another date range, or choose All Time.' + emptyHint() + '</p></div>';
+  if (notice && data.length) res.insertAdjacentHTML("afterbegin", '<div class="notice">' + notice + "</div>");
   res.classList.add("show");
   $("stats").classList.add("show");
 
@@ -661,10 +678,10 @@ function setActive(i) {
   $("dateRange").classList.remove("show");
 }
 
-function apply(fn, idx) {
+function apply(fn, idx, notice) {
   filteredData = allData.filter(fn);
   setActive(idx);
-  displayData(filteredData);
+  displayData(filteredData, notice);
 }
 
 function filterYesterday() {
@@ -768,7 +785,8 @@ function loadRange(from, to, fresh) {
   const mySeq = ++SUP.seq;
   const key = from + "|" + to;
 
-  if (!fresh && SUP.cache[key]) { SUP.recs = SUP.cache[key]; return renderDay(); }
+  const hit = SUP.cache[key];
+  if (!fresh && hit && Date.now() - hit.t < 60000) { SUP.recs = hit.recs; return renderDay(); }
 
   $("supSummary").innerHTML = '<div class="nodata"><div class="nodata-title">Loading ' + (isAdmin() ? "workforce" : "shift") + ' data...</div></div>';
   $("supTable").innerHTML = "";
@@ -779,7 +797,7 @@ function loadRange(from, to, fresh) {
     .then((j) => {
       if (mySeq !== SUP.seq) return;
       SUP.recs = (j.rows || []).map(toRec);
-      SUP.cache[key] = SUP.recs;
+      SUP.cache[key] = { t: Date.now(), recs: SUP.recs };
       renderDay();
     })
     .catch((e) => {
